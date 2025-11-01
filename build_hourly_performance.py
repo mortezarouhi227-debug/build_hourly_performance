@@ -43,6 +43,7 @@ def serial_to_datetime(n):
 
 def parse_date_floor_ms(v):
     if v in (None, ""): return float("nan")
+    # Excel serial
     try:
         f = float(v)
         dt = serial_to_datetime(f)
@@ -50,8 +51,9 @@ def parse_date_floor_ms(v):
         return dt.timestamp()*1000
     except:
         pass
+    # ← اصلاح: اول ISO، بعد m/d/Y، بعد d/m/Y
     s = str(v).strip()
-    for fmt in ("%Y-%m-%d","%Y/%m/%d","%d/%m/%Y","%m/%d/%Y","%Y-%m-%d %H:%M:%S"):
+    for fmt in ("%Y-%m-%d","%Y/%m/%d","%m/%d/%Y","%d/%m/%Y","%Y-%m-%d %H:%M:%S"):
         try:
             dt = datetime.strptime(s, fmt)
             dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -97,10 +99,6 @@ def normalize_digits(s: str) -> str:
     return s.translate(PERSIAN_DIGITS).translate(ARABIC_INDIC_DIGITS)
 
 def to_number_locale(x, default=0.0):
-    """
-    '1 234,56'، '1,234.56'، '۴۵٫۷'، '45.7 %' → float
-    علامت درصد حذف می‌شود ولی تقسیم بر 100 نمی‌شود (برای درصد از to_percent_locale استفاده کنید).
-    """
     if x in (None, ""): return default
     s = normalize_digits(str(x)).strip().replace("\u00a0", " ")
     s = s.replace("%", "").replace("٪", "").strip()
@@ -125,11 +123,6 @@ def to_number_locale(x, default=0.0):
         return default
 
 def to_percent_locale(x, default=0.0):
-    """
-    60.9%، ۱۳۱.۵٪ → 0.609، 1.315
-    - اگر 0..1 بود همان را برگردان
-    - اگر 1 < مقدار <= 1000 بود درصد فرض کن و /100 کن (پشتیبانی >100%)
-    """
     val = to_number_locale(x, default=None)
     if val is None:
         return default
@@ -197,8 +190,11 @@ def build_hourly_performance():
             target_ws.update(range_name="A4", values=[["⚠️ تاریخ معتبر در All_Data نیست."]])
             return
         latest = max(dms)
-        target_ws.update(range_name="B1", values=[[datetime.utcfromtimestamp(latest/1000).date().isoformat()]])
-        start_ms = latest; end_ms = latest + (24*60*60*1000 - 1)
+        start_ms = latest
+        end_ms = latest + (24*60*60*1000 - 1)
+
+    # ← نرمال‌سازی همیشگی B1 به ISO
+    target_ws.update(range_name="B1", values=[[datetime.utcfromtimestamp(start_ms/1000).date().isoformat()]])
 
     # پاکسازی خروجی از ردیف 3+
     vals = target_ws.get_all_values()
@@ -279,8 +275,8 @@ def build_hourly_performance():
         if t not in rows_by_task: continue
         occ = to_number_locale(r[colOccupied])
         neg = max(0.0, 60.0 - occ)
-        perf_no  = to_percent_locale(r[colPerfNoRot])   # ← پشتیبانی >100%
-        perf_yes = to_percent_locale(r[colPerfWith])    # ← پشتیبانی >100%
+        perf_no  = to_percent_locale(r[colPerfNoRot])
+        perf_yes = to_percent_locale(r[colPerfWith])
         rows_by_task[t].append([
             r[colFullName],
             _to_int_hour(r[colHour]),
@@ -312,7 +308,7 @@ def build_hourly_performance():
     end_col = len(header_row); end_row = 3 + len(output)
     target_ws.update(values=output, range_name=f"A4:{a1(end_col,end_row)}")
 
-    # فرمت عددی ستون‌ها: Negative → 0 ؛ Perf → 0.00%
+    # فرمت عددی ستون‌ها
     requests = []
     for b in range(len(TASK_TYPES)):
         start_col = b*8
