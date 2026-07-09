@@ -17,9 +17,10 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+# ====== تغییر: حذف Pick_Larg و Presort_Larg، اضافه کردن FBM ======
 TASK_TYPES = [
     "Receive","Locate","Sort","Pack_Multi","Pack_Single",
-    "Pick","Presort","Stock taking","Pick_Larg","Presort_Larg",
+    "Pick","Presort","Stock taking","FBM",  # FBM اضافه شد، *_Larg حذف شد
 ]
 
 # =========================
@@ -232,7 +233,8 @@ def build_hourly_performance():
                 "setDataValidation": {
                     "range": {"sheetId": target_ws.id, "startRowIndex":0,"endRowIndex":1,"startColumnIndex":9,"endColumnIndex":10},
                     "rule": {
-                        "condition":{"type":"ONE_OF_LIST","values":[{"userEnteredValue":v} for v in ["Shift1","Shift2","Flex","Other"]]},
+                        # ====== تغییر: اضافه کردن Shift3 ======
+                        "condition":{"type":"ONE_OF_LIST","values":[{"userEnteredValue":v} for v in ["Shift1","Shift2","Shift3","Flex","Other"]]},
                         "strict": False, "showCustomUi": True
                     }
                 }
@@ -344,5 +346,3 @@ def build_hourly_performance():
 # اجرای مستقیم
 if __name__ == "__main__":
     build_hourly_performance()
-
-
